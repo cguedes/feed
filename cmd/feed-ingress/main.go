@@ -18,6 +18,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/sky-uk/feed/ingress"
 	"github.com/sky-uk/feed/ingress/api"
+	"github.com/sky-uk/feed/ingress/elb"
 	"github.com/sky-uk/feed/ingress/nginx"
 	"github.com/sky-uk/feed/k8s"
 )
@@ -62,7 +63,8 @@ func main() {
 
 	lb := createLB()
 	client := createK8sClient()
-	controller := ingress.New(lb, client)
+	frontend := elb.New()
+	controller := ingress.New(lb, client, frontend)
 
 	configureHealthPort(controller)
 	addSignalHandler(controller)

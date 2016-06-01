@@ -61,9 +61,22 @@ func (c *fakeClient) String() string {
 	return "FakeClient"
 }
 
-func createDefaultStubs() (*fakeLb, *fakeClient) {
+type fakeFrontend struct {
+	mock.Mock
+}
+
+func (f *fakeFrontend) Attach(i FrontendInput) error {
+	return nil
+}
+
+func (f *fakeFrontend) Detach(i FrontendInput) error {
+	return nil
+}
+
+func createDefaultStubs() (*fakeLb, *fakeClient, *fakeFrontend) {
 	lb := new(fakeLb)
 	client := new(fakeClient)
+	frontend := new(fakeFrontend)
 
 	client.On("GetIngresses").Return([]k8s.Ingress{}, nil)
 	client.On("WatchIngresses", mock.Anything).Return(nil)
@@ -72,13 +85,13 @@ func createDefaultStubs() (*fakeLb, *fakeClient) {
 	lb.On("Update", mock.Anything).Return(nil)
 	lb.On("Healthy").Return(true)
 
-	return lb, client
+	return lb, client, frontend
 }
 
 func TestControllerCanBeStopped(t *testing.T) {
 	assert := assert.New(t)
-	lb, client := createDefaultStubs()
-	controller := New(lb, client)
+	lb, client, frontend := createDefaultStubs()
+	controller := New(lb, client, frontend)
 
 	assert.NoError(controller.Start())
 	assert.NoError(controller.Stop())
@@ -88,8 +101,7 @@ func TestControllerCanBeStopped(t *testing.T) {
 func TestControllerCannotBeRestarted(t *testing.T) {
 	// given
 	assert := assert.New(t)
-	lb, client := createDefaultStubs()
-	controller := New(lb, client)
+	controller := New(createDefaultStubs())
 
 	// and
 	assert.NoError(controller.Start())
@@ -103,8 +115,7 @@ func TestControllerCannotBeRestarted(t *testing.T) {
 func TestControllerStartCannotBeCalledTwice(t *testing.T) {
 	// given
 	assert := assert.New(t)
-	lb, client := createDefaultStubs()
-	controller := New(lb, client)
+	controller := New(createDefaultStubs())
 
 	// expect
 	assert.NoError(controller.Start())
@@ -115,8 +126,7 @@ func TestControllerStartCannotBeCalledTwice(t *testing.T) {
 func TestControllerIsUnhealthyUntilStarted(t *testing.T) {
 	// given
 	assert := assert.New(t)
-	lb, client := createDefaultStubs()
-	controller := New(lb, client)
+	controller := New(createDefaultStubs())
 
 	// expect
 	assert.False(controller.Healthy(), "should be unhealthy until started")
@@ -130,9 +140,9 @@ func TestControllerIsUnhealthyUntilStarted(t *testing.T) {
 
 func TestControllerIsUnhealthyIfLBIsUnhealthy(t *testing.T) {
 	assert := assert.New(t)
-	_, client := createDefaultStubs()
+	_, client, frontend := createDefaultStubs()
 	lb := new(fakeLb)
-	controller := New(lb, client)
+	controller := New(lb, client, frontend)
 
 	lb.On("Start").Return(nil)
 	lb.On("Stop").Return(nil)
@@ -148,9 +158,9 @@ func TestControllerIsUnhealthyIfLBIsUnhealthy(t *testing.T) {
 
 func TestLoadBalancerReturnsErrorIfWatcherFails(t *testing.T) {
 	// given
-	lb, _ := createDefaultStubs()
+	lb, _, frontend := createDefaultStubs()
 	client := new(fakeClient)
-	controller := New(lb, client)
+	controller := New(lb, client, frontend)
 	client.On("WatchIngresses", mock.Anything).Return(fmt.Errorf("failed to watch ingresses"))
 
 	// when
@@ -159,9 +169,9 @@ func TestLoadBalancerReturnsErrorIfWatcherFails(t *testing.T) {
 
 func TestLoadBalancerReturnsErrorIfLoadBalancerFails(t *testing.T) {
 	// given
-	_, client := createDefaultStubs()
+	_, client, frontend := createDefaultStubs()
 	lb := new(fakeLb)
-	controller := New(lb, client)
+	controller := New(lb, client, frontend)
 	lb.On("Start").Return(fmt.Errorf("kaboooom"))
 	lb.On("Stop").Return(nil)
 
@@ -174,10 +184,10 @@ func TestLoadBalancerUpdatesOnIngressUpdates(t *testing.T) {
 	assert := assert.New(t)
 
 	//given
-	lb, _ := createDefaultStubs()
+	lb, _, frontend := createDefaultStubs()
 	client := new(fakeClient)
 	ingresses := createIngressesFixture()
-	controller := New(lb, client)
+	controller := New(lb, client, frontend)
 	watcherChan := make(chan k8s.Watcher, 1)
 
 	client.On("GetIngresses").Return(ingresses, nil).Once()

@@ -27,16 +27,18 @@ type Controller interface {
 type controller struct {
 	lb            api.LoadBalancer
 	client        k8s.Client
+	frontend      api.Frontend
 	watcher       k8s.Watcher
 	started       bool
 	startStopLock sync.Mutex
 }
 
 // New creates an ingress controller.
-func New(loadBalancer api.LoadBalancer, kubernetesClient k8s.Client) Controller {
+func New(loadBalancer api.LoadBalancer, kubernetesClient k8s.Client, frontend api.Frontend) Controller {
 	return &controller{
-		lb:     loadBalancer,
-		client: kubernetesClient,
+		lb:       loadBalancer,
+		client:   kubernetesClient,
+		frontend: frontend,
 	}
 }
 
