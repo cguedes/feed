@@ -6,16 +6,13 @@ Kubernetes controllers for managing external ingress with AWS.
 
 ## feed-ingress
 
-`feed-ingress` manages an nginx instance for load balancing ingress traffic to Kubernetes services.
+`feed-ingress` manages an nginx instance for load balancing ingress traffic to Kubernetes services. It registers the instance
+ its running on with any ELBs with the `sky/uk/KubernetesClusterFrontend` tag set to its cluster name.
 It's intended to be replicated to scale.
 
 ## feed-dns
 
 `feed-dns` manages Route53 entries to point to the correct ELBs.
-
-## feed-elb
-
-`feed-elb` manages ELBs, attaching and removing ingress nodes.
 
 # Building
 
